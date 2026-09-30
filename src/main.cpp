@@ -1,38 +1,38 @@
 #include "Window.h"
 #include "Shader.h"
 #include "raymath.h"
+#include <cstddef>
 
 struct Vertex
 {
-	Vector2 pos; // offset of 0
-	Vector3 col; // offset of 8 (4 bytes for pos.x + 4 bytes for pos.y = 8)
+    Vector2 pos;   // offset of 0 (4 bytes for pos.x + 4 bytes for pos.y = 8)
+    Vector3 col;   // offset of 8 and then (4 bytes for col.r + 4 bytes for color.g + 4 bytes for color.b = 12)
 };
 
 static const Vertex vertices_white[3] =
 {
-	{ { -0.6f, -0.4f }, { 1.0f, 0.0f, 0.0f } },
-	{ { 0.6f, -0.4f }, { 1.0f, 0.0f, 0.0f } },
-	{ { 0.0f, 0.6f }, { 1.0f, 0.0f, 0.0f } }
+    { { -0.6f, -0.4f }, { 1.0f, 0.0f, 0.0f } },
+    { {  0.6f, -0.4f }, { 1.0f, 0.0f, 0.0f } },
+    { {   0.f,  0.6f }, { 1.0f, 0.0f, 0.0f } }
 };
-// Separate (non-interleaved) attributes, so each array is the attribute's own type
+
 static const Vector2 vertex_positions[3] =
 {
-	{ -0.6f, -0.4f },
-	{ 0.6f, -0.4f },
-	{ 0.0f, 0.6f }
+    { -0.6f, -0.4f },
+    { 0.6f, -0.4f },
+    { 0.f,  0.6f }
 };
+
 static const Vector3 vertex_colors[3] =
 {
-	{ 1.0f , 0.0f, 0.0f },
-	{ 0.0f, 1.0f, 0.0f },
-	{ 0.0f, 0.0f, 1.0f }
+    { 1.0f, 0.0f, 0.0f },
+    { 0.0f, 1.0f, 0.0f },
+    { 0.0f, 0.0f, 1.0f }
 };
-
-
 
 int main()
 {
-    CreateWindow(1200, 1200, "Graphics 1");
+    CreateWindow(800, 800, "Graphics 1");
 
     GLuint a1_tri_vert = CreateShader(GL_VERTEX_SHADER, "./assets/shaders/a1_triangle.vert");
     GLuint a1_tri_frag = CreateShader(GL_FRAGMENT_SHADER, "./assets/shaders/a1_triangle.frag");
@@ -87,9 +87,6 @@ int main()
 
     GLint u_color = glGetUniformLocation(a1_tri_shader, "u_color");
 
-    // Assignment 1
-
-
     /* Loop until the user closes the window */
     while (!WindowShouldClose())
     {
@@ -103,7 +100,8 @@ int main()
         float a = 1.0f;
 
         /* Render here */
-        glad_glClearColor(r, g, b, a);
+        glClearColor(r, g, b, a);
+
         glClear(GL_COLOR_BUFFER_BIT);
 
         if (IsKeyPressed(KEY_SPACE))
@@ -119,39 +117,40 @@ int main()
             glBindVertexArray(vertex_array_white);
             glDrawArrays(GL_TRIANGLES, 0, 3);
             break;
-
         case 1:
+            glPointSize(10);
+            glUseProgram(a1_tri_shader);
+            glUniform3f(u_color, 1.0f, 1.0f, 1.0f);
+            glBindVertexArray(vertex_array_white);
+            glDrawArrays(GL_POINTS, 0, 3);
+            break;
+        case 2:
+            glPointSize(10);
+            glUseProgram(a1_tri_shader);
+            glUniform3f(u_color, 1.0f, 1.0f, 1.0f);
+            glBindVertexArray(vertex_array_white);
+            glDrawArrays(GL_LINE_LOOP, 0, 3);
+            break;
+        case 3:
             glUseProgram(a1_tri_shader);
             glUniform3f(u_color, 0.8, 0.8f, 0.8f);
             glBindVertexArray(vertex_array_rainbow);
             glDrawArrays(GL_TRIANGLES, 0, 3);
-            break;
-
-        case 2:
-            glUseProgram(a1_tri_shader);
-            glUniform3f(u_color, 0.6, 0.6f, 0.6f);
-            glBindVertexArray(vertex_array_rainbow);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
-            break;
-
-        case 3:
-            glUseProgram(a1_tri_shader);
-            glUniform3f(u_color, 0.4, 0.4f, 0.4f);
-            glBindVertexArray(vertex_array_rainbow);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
-            break;
-
         case 4:
             glUseProgram(a1_tri_shader);
             glUniform3f(u_color, 0.5, 0.5f, 0.5f);
             glBindVertexArray(vertex_array_rainbow);
             glDrawArrays(GL_TRIANGLES, 0, 3);
             break;
+
+        default:
+            break;
         }
 
         // Called at end of the frame to swap buffers and update input
         Loop();
     }
+
 
     glDeleteVertexArrays(1, &vertex_array_rainbow);
     glDeleteVertexArrays(1, &vertex_array_white);
@@ -163,5 +162,6 @@ int main()
     glDeleteShader(a1_tri_vert);
 
     DestroyWindow();
+
     return 0;
 }

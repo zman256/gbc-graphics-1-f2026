@@ -10,6 +10,11 @@ bool WindowShouldClose();
 
 void Loop();
 
+int WindowWidth();
+int WindowHeight();
+
+float Time();					// Time since window creation in seconds
+
 bool IsKeyDown(int key);		// If a key is heald
 
 bool IsKeyUp(int key);			// If a key is released
