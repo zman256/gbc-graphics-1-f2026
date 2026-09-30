@@ -28,9 +28,11 @@ static const Vector3 vertex_colors[3] =
 	{ 0.0f, 0.0f, 1.0f }
 };
 
+
+
 int main()
 {
-    CreateWindow(800, 800, "Graphics 1");
+    CreateWindow(1200, 1200, "Graphics 1");
 
     GLuint a1_tri_vert = CreateShader(GL_VERTEX_SHADER, "./assets/shaders/a1_triangle.vert");
     GLuint a1_tri_frag = CreateShader(GL_FRAGMENT_SHADER, "./assets/shaders/a1_triangle.frag");
@@ -85,6 +87,9 @@ int main()
 
     GLint u_color = glGetUniformLocation(a1_tri_shader, "u_color");
 
+    // Assignment 1
+
+
     /* Loop until the user closes the window */
     while (!WindowShouldClose())
     {
@@ -98,7 +103,7 @@ int main()
         float a = 1.0f;
 
         /* Render here */
-        glClearColor(r, g, b, a);
+        glad_glClearColor(r, g, b, a);
         glClear(GL_COLOR_BUFFER_BIT);
 
         if (IsKeyPressed(KEY_SPACE))
