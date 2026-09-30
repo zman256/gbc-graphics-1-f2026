@@ -130,6 +130,7 @@ int main()
         switch (object_index)
         {
         case 0:
+        {
             glUseProgram(a1_tri_shader);
 
             world = MatrixScale(0.3f, 0.3f, 1.0f) * MatrixTranslate(0.5f, 0.5f, 9.0f);
@@ -163,37 +164,106 @@ int main()
             glDrawArrays(GL_TRIANGLES, 0, 3);
 
             break;
+        }
         case 1:
+        {
             glPointSize(10);
 
             glUseProgram(a1_tri_shader);
 
-			world = MatrixIdentity();
-			mvp = world * view * proj;
+            world = MatrixIdentity();
+            mvp = world * view * proj;
+            glUniformMatrix4fv(u_mvp, 1, GL_FALSE, MatrixToFloat(mvp));
 
-            glUniform3f(u_color, 1.0f, 1.0f, 1.0f);
+            glUniform3f(u_color, 1.0f, 0.0f, 1.0f);
             glBindVertexArray(vertex_array_white);
             glDrawArrays(GL_POINTS, 0, 3);
             break;
+        }
         case 2:
+        {
             glPointSize(10);
             glUseProgram(a1_tri_shader);
+
+            Matrix s = MatrixScale(5.0f, 5.0f, 1.0f);
+            Matrix r = MatrixRotateZ(time * 100.0f * DEG2RAD);
+            Matrix t = MatrixTranslate(0.0f, 0.0f, 0.0f);
+
+            world = s * r * t;
+            mvp = world * view * proj;
+            glUniformMatrix4fv(u_mvp, 1, GL_FALSE, MatrixToFloat(mvp));
+
             glUniform3f(u_color, 1.0f, 1.0f, 1.0f);
-            glBindVertexArray(vertex_array_white);
+            glBindVertexArray(vertex_array_rainbow);
             glDrawArrays(GL_LINE_LOOP, 0, 3);
             break;
+        }
         case 3:
+        {
+            Matrix s = MatrixIdentity();
+            Matrix r = MatrixIdentity();
+            Matrix t = MatrixIdentity();
+			Matrix view = MatrixLookAt({ 0.0f, 0.0f, 10.0f }, { 0.0f, 0.0f, 0.0f }, Vector3UnitY);
+			Matrix proj = MatrixOrtho(-1.0f, 1.0f, -1.0f, 1.0f, near, far);
+
+            float time = Time();
+			float alpha = cosf(time) * 0.5f + 0.5f; // oscillates between 0 and 1
+			Vector3 A = { -1.0f, -1.0f, 0.0f };
+            Vector3 B = { 1.0f, 1.0f, 0.0f };
+            Vector3 C = Vector3Lerp(A, B, alpha);
+			t = MatrixTranslate(C.x, C.y, C.z);
+
+            world = s * r * t;
+            mvp = world * view * proj;
+            glUniformMatrix4fv(u_mvp, 1, GL_FALSE, MatrixToFloat(mvp));
+
             glUseProgram(a1_tri_shader);
             glUniform3f(u_color, 0.8, 0.8f, 0.8f);
             glBindVertexArray(vertex_array_rainbow);
             glDrawArrays(GL_TRIANGLES, 0, 3);
+        }
         case 4:
+        {
+			Matrix view5 = MatrixLookAt({ 0.0f, 0.0f, 10.0f }, { 0.0f, 0.0f, 0.0f }, Vector3UnitY);
+			Matrix proj5 = MatrixOrtho(-10.0f, 10.0f, -10.0f, 10.0f, near, far);
+
+			//Translation interpolation
+            float time = Time();
+            float alpha = cosf(time) * 0.5f + 0.5f; // oscillates between 0 and 1
+            Vector3 tA = { 0.0f, -10.0f, 0.0f };
+            Vector3 tB = { 0.0f, 10.0f, 0.0f };
+            Vector3 tC = Vector3Lerp(tA, tB, alpha);
+
+            // Scale interpolation
+            Vector3 sA = { 1.0f, 1.0f, 1.0f };
+            Vector3 sB = { 10.0f, 10.0f, 1.0f };
+            Vector3 sC = Vector3Lerp(sA, sB, alpha);
+
+			// Spherical Lerp because we interpolate between two quaternions (rotation) instead of two vectors (position)
+			Quaternion qA = QuaternionIdentity();
+			Quaternion qB = QuaternionFromEuler(0.0f, 0.0f, 90.0f * DEG2RAD);
+			Quaternion qC = QuaternionSlerp(qA, qB, alpha);
+
+			Matrix s = MatrixScale(sC.x, sC.y, sC.z);
+			Matrix r = QuaternionToMatrix(qC);
+			Matrix t = MatrixTranslate(tC.x, tC.y, tC.z);
+
+            //Color interpolation
+            Vector3 cA = Vector3UnitY; // Green
+            Vector3 cB = Vector3UnitZ; // Blue
+			Vector3 cC = Vector3Lerp(cA, cB, alpha);
+
+            Matrix mvp = s * r * t * view * proj;
+
             glUseProgram(a1_tri_shader);
-            glUniform3f(u_color, 0.5, 0.5f, 0.5f);
+
+			glUniformMatrix4fv(u_mvp, 1, GL_FALSE, MatrixToFloat(mvp));
+            glUniform3f(u_color, cC.x, cC.y, cC.z);
+
             glBindVertexArray(vertex_array_rainbow);
             glDrawArrays(GL_TRIANGLES, 0, 3);
             break;
-
+        }
         default:
             break;
         }
