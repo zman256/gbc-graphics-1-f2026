@@ -11,9 +11,9 @@ struct Vertex
 
 static const Vertex vertices_white[3] =
 {
-    { { -0.6f, -0.4f }, { 1.0f, 0.0f, 0.0f } },
-    { {  0.6f, -0.4f }, { 1.0f, 0.0f, 0.0f } },
-    { {   0.f,  0.6f }, { 1.0f, 0.0f, 0.0f } }
+    { { -0.6f, -0.4f }, { 1.0f, 1.0f, 1.0f } },
+    { {  0.6f, -0.4f }, { 1.0f, 1.0f, 1.0f } },
+    { {   0.f,  0.6f }, { 1.0f, 1.0f, 1.0f } }
 };
 
 static const Vector2 vertex_positions[3] =
@@ -32,7 +32,7 @@ static const Vector3 vertex_colors[3] =
 
 int main()
 {
-    CreateWindow(800, 800, "Graphics 1");
+    CreateWindow(800, 800, "Week 4");
 
     GLuint a1_tri_vert = CreateShader(GL_VERTEX_SHADER, "./assets/shaders/a1_triangle.vert");
     GLuint a1_tri_frag = CreateShader(GL_FRAGMENT_SHADER, "./assets/shaders/a1_triangle.frag");
@@ -87,6 +87,21 @@ int main()
 
     GLint u_color = glGetUniformLocation(a1_tri_shader, "u_color");
 
+	GLint u_mvp = glGetUniformLocation(a1_tri_shader, "u_mvp");
+
+	// Aspect ratio of the window (width / height)
+	float aspect = WindowWidth() / (float)WindowHeight();
+	float near = 0.01f;
+	float far = 100.0f;
+
+	//Scale the projection matrix to account for the aspect ratio of the window
+	Matrix world = MatrixScale(0.3f, 0.3f, 1.0f) * MatrixRotateZ(0.0f * DEG2RAD) * MatrixTranslate(0.0f, 0.0f, 5.0f);
+	Matrix view = MatrixLookAt({ 0.0f, 0.0f, 10.0f }, { 0.0f, 0.0f, 0.0f }, Vector3UnitY);
+	// Perspective = 3D projection, (closer objects = bigger, further objects = smaller)
+	Matrix proj = MatrixPerspective(75.0f * DEG2RAD, aspect, near, far);
+
+	Matrix mvp = world * view * proj;
+
     /* Loop until the user closes the window */
     while (!WindowShouldClose())
     {
@@ -98,6 +113,9 @@ int main()
         float g = 136.0f / 255.0f;
         float b = 190.0f / 255.0f;
         float a = 1.0f;
+
+        // Time in seconds since GLFW was initialized ( use this with functions like sinf and cosf for repeating animations)
+		float time = Time();
 
         /* Render here */
         glClearColor(r, g, b, a);
@@ -113,13 +131,46 @@ int main()
         {
         case 0:
             glUseProgram(a1_tri_shader);
-            glUniform3f(u_color, 1.0f, 1.0f, 1.0f);
+
+            world = MatrixScale(0.3f, 0.3f, 1.0f) * MatrixTranslate(0.5f, 0.5f, 9.0f);
+            mvp = world * view * proj;
+
+            glUniform3f(u_color, 1.0f, 0.0f, 0.0f);
+            glUniformMatrix4fv(u_mvp, 1, GL_FALSE, MatrixToFloat(mvp));
             glBindVertexArray(vertex_array_white);
             glDrawArrays(GL_TRIANGLES, 0, 3);
+
+
+            world = MatrixScale(0.3f, 0.3f, 1.0f) * MatrixTranslate(-0.5f, 0.5f, 9.0f);
+            mvp = world * view * proj;
+            glUniformMatrix4fv(u_mvp, 1, GL_FALSE, MatrixToFloat(mvp));
+            glUniform3f(u_color, 0.0f, 1.0f, 0.0f);
+            glBindVertexArray(vertex_array_white);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+
+            world = MatrixScale(0.3f, 0.3f, 1.0f) * MatrixTranslate(-0.5f, -0.5f, 9.0f);
+            mvp = world * view * proj;
+            glUniformMatrix4fv(u_mvp, 1, GL_FALSE, MatrixToFloat(mvp));
+            glUniform3f(u_color, 0.0f, 0.0f, 1.0f);
+            glBindVertexArray(vertex_array_white);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+
+            world = MatrixScale(0.3f, 0.3f, 1.0f) * MatrixTranslate(0.5f, -0.5f, 9.0f);
+            mvp = world * view * proj;
+            glUniformMatrix4fv(u_mvp, 1, GL_FALSE, MatrixToFloat(mvp));
+            glUniform3f(u_color, 1.0f, 1.0f, 0.0f);
+            glBindVertexArray(vertex_array_white);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+
             break;
         case 1:
             glPointSize(10);
+
             glUseProgram(a1_tri_shader);
+
+			world = MatrixIdentity();
+			mvp = world * view * proj;
+
             glUniform3f(u_color, 1.0f, 1.0f, 1.0f);
             glBindVertexArray(vertex_array_white);
             glDrawArrays(GL_POINTS, 0, 3);
