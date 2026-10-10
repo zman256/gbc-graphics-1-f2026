@@ -38,39 +38,44 @@ int main()
     GLuint a1_tri_frag = CreateShader(GL_FRAGMENT_SHADER, "./assets/shaders/a1_triangle.frag");
     GLuint a1_tri_shader = CreateProgram(a1_tri_vert, a1_tri_frag);
 
+	// Create vertex buffers for the rainbow triangle
     GLuint vertex_buffer_rainbow_positions;
     GLuint vertex_buffer_rainbow_colors;
+	// Generate vertex buffer objects for the rainbow triangle's positions and colors
     glGenBuffers(1, &vertex_buffer_rainbow_positions);
     glGenBuffers(1, &vertex_buffer_rainbow_colors);
-
+	// Bind the vertex buffer objects and upload the data to the GPU
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_rainbow_positions);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_positions), vertex_positions, GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_rainbow_colors);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_colors), vertex_colors, GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, GL_NONE);
+    glBindBuffer(GL_ARRAY_BUFFER, GL_NONE); // Stop recording vertex buffer state to the vertex array object aka (VAO)
     // Can only have 1 vertex buffer bound at a time, so must unbind in order to prevent overwriting it
-
+   
+	// Create vertex buffer for the white triangle
     GLuint vertex_buffer_white;
     glGenBuffers(1, &vertex_buffer_white);
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_white);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices_white), vertices_white, GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, GL_NONE);
+    glBindBuffer(GL_ARRAY_BUFFER, GL_NONE); 
 
+	// Rainbow triangle that interpolates colors across its surface
     GLuint vertex_array_rainbow;
     glGenVertexArrays(1, &vertex_array_rainbow);
     glBindVertexArray(vertex_array_rainbow);
-
+    
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
-
+    
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_rainbow_positions);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vector2), 0);
 
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_rainbow_colors);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vector3), 0);
+    
+   	glBindVertexArray(GL_NONE);   
 
-    glBindVertexArray(GL_NONE);
-
+	// White triangle that is a single color across its surface
     GLuint vertex_array_white;
     glGenVertexArrays(1, &vertex_array_white);
     glBindVertexArray(vertex_array_white);
@@ -124,7 +129,7 @@ int main()
 
         if (IsKeyPressed(KEY_SPACE))
         {
-            ++object_index %= 5;
+            ++object_index %= 6;
         }
 
         switch (object_index)
@@ -208,8 +213,8 @@ int main()
 
             float time = Time();
 			float alpha = cosf(time) * 0.5f + 0.5f; // oscillates between 0 and 1
-			Vector3 A = { -1.0f, -1.0f, 0.0f };
-            Vector3 B = { 1.0f, 1.0f, 0.0f };
+			Vector3 A = { 1.0f, 0.0f, 0.0f };
+            Vector3 B = { -1.0f, 0.0f, 0.0f };
             Vector3 C = Vector3Lerp(A, B, alpha);
 			t = MatrixTranslate(C.x, C.y, C.z);
 
@@ -221,6 +226,7 @@ int main()
             glUniform3f(u_color, 0.8, 0.8f, 0.8f);
             glBindVertexArray(vertex_array_rainbow);
             glDrawArrays(GL_TRIANGLES, 0, 3);
+            break;
         }
         case 4:
         {
@@ -264,6 +270,17 @@ int main()
             glDrawArrays(GL_TRIANGLES, 0, 3);
             break;
         }
+		case 5:
+		{
+			glUseProgram(a1_tri_shader);
+			world = MatrixScale(2.5f, 2.5f, 10.0f) * MatrixTranslate(0.3f, 0.5f, 5.0f);
+			mvp = world * view * proj;
+			glUniform3f(u_color, 1.0f, 1.0f, 1.0f);
+			glUniformMatrix4fv(u_mvp, 1, GL_FALSE, MatrixToFloat(mvp));
+			glBindVertexArray(vertex_array_white);
+			glDrawArrays(GL_TRIANGLES, 0, 3);
+			break;
+		}
         default:
             break;
         }
