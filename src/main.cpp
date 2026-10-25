@@ -48,13 +48,62 @@ int main(void)
     glDebugMessageCallback(DebugCallback, nullptr);
 #endif
 
-    const size_t vertex_count = 16;
+    const size_t square_count = 16;
+    const size_t vertex_count = square_count * 8;
+	Vector3 corners[4] = {
+		{ -1.0f, -1.0f, 0.0f }, // bottom left
+		{ 1.0f, -1.0f, 0.0f }, // bottom right
+		{ 1.0f,  1.0f, 0.0f }, // top right
+		{ -1.0f,  1.0f, 0.0f } // top left
+	};
+    Vector3 colors[square_count] = {
+        { 1.0f, 1.0f, 1.0f }, // white
+        { 1.0f, 0.0f, 0.0f }, // red
+        { 0.0f, 1.0f, 0.0f }, // green
+        { 0.0f, 0.0f, 1.0f }, // blue
+        { 1.0f, 1.0f, 0.0f }, // yellow
+        { 1.0f, 0.0f, 1.0f }, // magenta
+        { 0.0f, 1.0f, 1.0f }, // cyan
+        { 1.0f, 0.5f, 0.0f }  // orange
+    };
 
-    float t = -1.0f;
     std::vector<Vector3> line_positions;
+    std::vector<Vector3> line_colors;
     line_positions.resize(vertex_count);
+    line_colors.resize(vertex_count);
 
-    // 4 Horizontal lines
+    for (size_t s = 0; s < square_count; s++)
+    {
+        size_t i = s * 8; // square is 8 vertices (4 edges x 2 endpoints)
+
+        // every edge needs both of its endpoints listed
+        // the last pair wraps back to corner 0 to close the square
+        for (size_t j = 0; j < 4; j++)
+        {
+            line_positions[i + j * 2 + 0] = corners[j];
+            line_positions[i + j * 2 + 1] = corners[(j + 1) % 4];
+        }
+
+        // set the colour of the squares edges to the colour of the square
+        for (size_t j = 0; j < 8; j++)
+        {
+            line_colors[i + j] = colors[s % 8];
+        }
+
+        // create the next square. its corners are the midpoints of the previous squares edges
+        // put it into a temp array first so that every midpoint is computed from the original corners to not overwrite
+        Vector3 midpoints[4];
+        for (size_t j = 0; j < 4; j++)
+        {
+            midpoints[j] = Vector3Scale(Vector3Add(corners[j], corners[(j + 1) % 4]), 0.5f);
+        }
+        for (size_t j = 0; j < 4; j++)
+        {
+            corners[j] = midpoints[j];
+        }
+    }
+
+/*    // 4 Horizontal lines
     for (size_t i = 0; i < vertex_count / 2; i+= 2)
     {
         t += 0.4f;
@@ -71,7 +120,7 @@ int main(void)
         line_positions[i + 1] = { t,  1.0f, 0.0f };
     }
 
-    std::vector<Vector3> line_colors;
+    
     line_colors.resize(vertex_count);
     for (size_t i = 0; i < vertex_count / 2; i++)
     {
@@ -80,7 +129,7 @@ int main(void)
     for (size_t i = vertex_count / 2; i < vertex_count; i++)
     {
         line_colors[i] = { 1.0f, 0.0f, 1.0f };
-    }
+    }*/
         
     assert(vertex_count == line_positions.size() && vertex_count == line_colors.size());
     GLuint line_vao = GL_NONE;
@@ -117,11 +166,10 @@ int main(void)
         glUseProgram(shader_program);
         glBindVertexArray(line_vao);
 
-        glLineWidth(2.0f);
+        // Core profile caps line width at 1.0 on most drivers; anything
+        // larger raises GL_INVALID_VALUE every frame.
+        glLineWidth(1.0f);
         glDrawArrays(GL_LINES, 0, vertex_count);
-
-        glPointSize(16.0f);
-        glDrawArrays(GL_POINTS, 0, vertex_count);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
