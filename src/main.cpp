@@ -1,7 +1,14 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
+
+#define FAST_OBJ_IMPLEMENTATION
+#include "fast_obj.h"
+
 #include <raymath.h>
+
 #include <cassert>
 #include <iostream>
 #include <vector>
@@ -10,168 +17,113 @@
 void APIENTRY DebugCallback(GLenum source, GLenum type, unsigned int id, GLenum severity, GLsizei length, const char* message, const void* userParam);
 void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
-struct App
+enum ShaderVertexAttribute : int
 {
-    int object_index;
+    ATTRIBUTE_POSITIONS,
+    ATTRIBUTE_NORMALS,
+    ATTRIBUTE_TCOORDS
 };
 
-int main(void)
+struct App
 {
-    App app{};
+    GLFWwindow* window;
+    int object_index;
+    int attribute_color;
+    int color_space;
+};
 
-    assert(glfwInit() == GLFW_TRUE);
+struct Mesh
+{
+    std::vector<Vector3> positions;
+    std::vector<Vector3> normals;
+    std::vector<Vector2> tcoords;
+    int index_count;
 
-    // Request certain OpenGL features
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    GLuint vao;
+    GLuint vbo_positions;
+    GLuint vbo_tcoords;
+    GLuint vbo_normals;
+};
 
-#ifdef NDEBUG
-    // Don't make a debug context if in release mode
-#else
-    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
-#endif
-
-    GLFWwindow* window = glfwCreateWindow(1600, 900, "Graphics 1", nullptr, nullptr);
-    assert(window != nullptr);
-
-    glfwSetWindowUserPointer(window, &app);
-    glfwSetKeyCallback(window, KeyCallback);
-
-    glfwMakeContextCurrent(window);
-    assert(gladLoadGLLoader((GLADloadproc)glfwGetProcAddress) == true);
-
-#ifdef NDEBUG
-#else
-    glEnable(GL_DEBUG_OUTPUT);
-    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-    glDebugMessageCallback(DebugCallback, nullptr);
-#endif
-
-    const size_t square_count = 16;
-    const size_t vertex_count = square_count * 8;
-	Vector3 corners[4] = {
-		{ -1.0f, -1.0f, 0.0f }, // bottom left
-		{ 1.0f, -1.0f, 0.0f }, // bottom right
-		{ 1.0f,  1.0f, 0.0f }, // top right
-		{ -1.0f,  1.0f, 0.0f } // top left
-	};
-    Vector3 colors[square_count] = {
-        { 1.0f, 1.0f, 1.0f }, // white
-        { 1.0f, 0.0f, 0.0f }, // red
-        { 0.0f, 1.0f, 0.0f }, // green
-        { 0.0f, 0.0f, 1.0f }, // blue
-        { 1.0f, 1.0f, 0.0f }, // yellow
-        { 1.0f, 0.0f, 1.0f }, // magenta
-        { 0.0f, 1.0f, 1.0f }, // cyan
-        { 1.0f, 0.5f, 0.0f }  // orange
-    };
-
-    std::vector<Vector3> line_positions;
-    std::vector<Vector3> line_colors;
-    line_positions.resize(vertex_count);
-    line_colors.resize(vertex_count);
-
-    for (size_t s = 0; s < square_count; s++)
-    {
-        size_t i = s * 8; // square is 8 vertices (4 edges x 2 endpoints)
-
-        // every edge needs both of its endpoints listed
-        // the last pair wraps back to corner 0 to close the square
-        for (size_t j = 0; j < 4; j++)
-        {
-            line_positions[i + j * 2 + 0] = corners[j];
-            line_positions[i + j * 2 + 1] = corners[(j + 1) % 4];
-        }
-
-        // set the colour of the squares edges to the colour of the square
-        for (size_t j = 0; j < 8; j++)
-        {
-            line_colors[i + j] = colors[s % 8];
-        }
-
-        // create the next square. its corners are the midpoints of the previous squares edges
-        // put it into a temp array first so that every midpoint is computed from the original corners to not overwrite
-        Vector3 midpoints[4];
-        for (size_t j = 0; j < 4; j++)
-        {
-            midpoints[j] = Vector3Scale(Vector3Add(corners[j], corners[(j + 1) % 4]), 0.5f);
-        }
-        for (size_t j = 0; j < 4; j++)
-        {
-            corners[j] = midpoints[j];
-        }
-    }
-
-/*    // 4 Horizontal lines
-    for (size_t i = 0; i < vertex_count / 2; i+= 2)
-    {
-        t += 0.4f;
-        line_positions[i + 0] = { -1.0f, t, 0.0f };
-        line_positions[i + 1] = {  1.0f, t, 0.0f };
-    }
-
-    // 4 Vertical lines
-    t = -1.0f;
-    for (size_t i = vertex_count / 2; i < vertex_count; i += 2)
-    {
-        t += 0.4f;
-        line_positions[i + 0] = { t, -1.0f, 0.0f };
-        line_positions[i + 1] = { t,  1.0f, 0.0f };
-    }
-
+void LoadMesh(Mesh* mesh, const char* path)
+{
+    fastObjMesh* obj_mesh;
+    obj_mesh = fast_obj_read(path);
     
-    line_colors.resize(vertex_count);
-    for (size_t i = 0; i < vertex_count / 2; i++)
+    mesh->index_count = obj_mesh->index_count;
+    mesh->positions.resize(mesh->index_count);
+
+    for (fastObjUInt i = 0; i < mesh->index_count; i++)
     {
-        line_colors[i] = { 1.0f, 0.0f, 0.0f };
+        Vector3* obj_positions_buffer = (Vector3*)obj_mesh->positions;
+        fastObjUInt obj_position_index = obj_mesh->indices[i].p;
+        mesh->positions[i] = obj_positions_buffer[obj_position_index];
+
+        // TODO -- sample normal indices and add them to the mesh's normals buffer
+        // TODO -- sample tcoord indices and add them to the mesh's tcoords buffer
     }
-    for (size_t i = vertex_count / 2; i < vertex_count; i++)
-    {
-        line_colors[i] = { 1.0f, 0.0f, 1.0f };
-    }*/
-        
-    assert(vertex_count == line_positions.size() && vertex_count == line_colors.size());
-    GLuint line_vao = GL_NONE;
-    GLuint line_positions_vbo = GL_NONE;
-    GLuint line_colors_vbo = GL_NONE;
 
-    glGenVertexArrays(1, &line_vao);
-    glGenBuffers(1, &line_positions_vbo);
-    glGenBuffers(1, &line_colors_vbo);
+    fast_obj_destroy(obj_mesh);
 
-    glBindVertexArray(line_vao);                            // "Record the following state of vertex buffers within this vertex array"
+    glGenVertexArrays(1, &mesh->vao);
+    glGenBuffers(1, &mesh->vbo_positions);
+    // TODO -- generate vbo handles for mesh normals and mesh tcoords
 
-    glBindBuffer(GL_ARRAY_BUFFER, line_positions_vbo);      // The following array (vertex) buffer will be described (triangle_positions_vbo):
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);// Index 0, 3 components, float data, no implicit normalization, no stride, no offset
-    glBufferData(GL_ARRAY_BUFFER, vertex_count * sizeof(Vector3), line_positions.data(), GL_STATIC_DRAW); // Transfer memory of triangle_positions into currently bound vbo
+    glBindVertexArray(mesh->vao);
+
+    glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo_positions);
+    glVertexAttribPointer(ATTRIBUTE_POSITIONS, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+    glBufferData(GL_ARRAY_BUFFER, mesh->positions.size() * sizeof(Vector3), mesh->positions.data(), GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
 
-    glBindBuffer(GL_ARRAY_BUFFER, line_colors_vbo);         // The following array (vertex) buffer will be described (triangle_colors_vbo):
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, nullptr);// Index 1, 3 components, float data, no implicit normalization, no stride, no offset
-    glBufferData(GL_ARRAY_BUFFER, vertex_count * sizeof(Vector3), line_colors.data(), GL_STATIC_DRAW); // Transfer memory of triangle_colors into currently bound vbo
-    glEnableVertexAttribArray(1);
+    // TODO -- describe vertex buffers for normals (1) and tcoords (2)
 
-    glBindVertexArray(GL_NONE);                                 // "Stop recording vertex buffer state"
+    glBindVertexArray(GL_NONE);
+}
 
-    GLuint vs_shader = LoadShader(GL_VERTEX_SHADER, "./assets/shaders/a2_lines.vert");
-    GLuint fs_shader = LoadShader(GL_FRAGMENT_SHADER, "./assets/shaders/a2_lines.frag");
+void UnloadMesh(Mesh* mesh)
+{
+    
+}
+
+void Init(App* app);
+
+int main()
+{
+    App app{};
+    Init(&app);
+
+    Mesh meshes[2];
+    LoadMesh(&meshes[0], "./assets/meshes/plane.obj");
+    LoadMesh(&meshes[1], "./assets/meshes/head.obj");
+
+    GLuint vs_shader = LoadShader(GL_VERTEX_SHADER, "./assets/shaders/a3_mesh.vert");
+    GLuint fs_shader = LoadShader(GL_FRAGMENT_SHADER, "./assets/shaders/a3_mesh.frag");
     GLuint shader_program = LoadProgram(vs_shader, fs_shader);
 
-    while (!glfwWindowShouldClose(window))
+    glEnable(GL_DEPTH_TEST);
+    while (!glfwWindowShouldClose(app.window))
     {
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClearDepth(1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        Matrix world = MatrixIdentity();
 
         glUseProgram(shader_program);
-        glBindVertexArray(line_vao);
+        GLint loc_transform = glGetUniformLocation(shader_program, "u_transform");
+        GLint loc_style = glGetUniformLocation(shader_program, "u_style");
+        GLint loc_color_space = glGetUniformLocation(shader_program, "u_color_space");
+        glUniformMatrix4fv(loc_transform, 1, GL_FALSE, MatrixToFloat(world));
+        glUniform1i(loc_style, app.attribute_color);
+        glUniform1i(loc_color_space, app.color_space);
 
-        // Core profile caps line width at 1.0 on most drivers; anything
-        // larger raises GL_INVALID_VALUE every frame.
-        glLineWidth(1.0f);
-        glDrawArrays(GL_LINES, 0, vertex_count);
+        const Mesh& mesh = meshes[app.object_index];
+        glBindVertexArray(mesh.vao);
 
-        glfwSwapBuffers(window);
+        glDrawArrays(GL_TRIANGLES, 0, mesh.index_count);
+
+        glfwSwapBuffers(app.window);
         glfwPollEvents();
     }
 
@@ -190,9 +142,52 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
     if (key == GLFW_KEY_TAB && action == GLFW_PRESS)
     {
-        // Bound our array to be [0..4]
-        ++app->object_index %= 5;
+        // Bound our array to be [0..1]
+        ++app->object_index %= 2;
     }
+
+    if (key == GLFW_KEY_C && action == GLFW_PRESS)
+    {
+        // Bound our array to be [0..2]
+        ++app->attribute_color %= 3;
+    }
+    if (key == GLFW_KEY_V && action == GLFW_PRESS)
+    {
+        // Bound our array to be [0..1]
+        ++app->color_space %= 2;
+    }
+}
+
+void Init(App* app)
+{
+    assert(glfwInit() == GLFW_TRUE);
+
+    // Request certain OpenGL features
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+#ifdef NDEBUG
+    // Don't make a debug context if in release mode
+#else
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+#endif
+
+    app->window = glfwCreateWindow(1600, 900, "Graphics 1", nullptr, nullptr);
+    assert(app->window != nullptr);
+
+    glfwSetWindowUserPointer(app->window, app);
+    glfwSetKeyCallback(app->window, KeyCallback);
+
+    glfwMakeContextCurrent(app->window);
+    assert(gladLoadGLLoader((GLADloadproc)glfwGetProcAddress) == true);
+
+#ifdef NDEBUG
+#else
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    glDebugMessageCallback(DebugCallback, nullptr);
+#endif
 }
 
 void APIENTRY DebugCallback(GLenum source, GLenum type, unsigned int id, GLenum severity, GLsizei length, const char* message, const void* userParam)
