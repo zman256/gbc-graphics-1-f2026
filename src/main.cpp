@@ -49,9 +49,11 @@ void LoadMesh(Mesh* mesh, const char* path)
 {
     fastObjMesh* obj_mesh;
     obj_mesh = fast_obj_read(path);
-    
+
     mesh->index_count = obj_mesh->index_count;
     mesh->positions.resize(mesh->index_count);
+    mesh->normals.resize(mesh->index_count);
+    mesh->tcoords.resize(mesh->index_count);
 
     for (fastObjUInt i = 0; i < mesh->index_count; i++)
     {
@@ -60,7 +62,14 @@ void LoadMesh(Mesh* mesh, const char* path)
         mesh->positions[i] = obj_positions_buffer[obj_position_index];
 
         // TODO -- sample normal indices and add them to the mesh's normals buffer
+        Vector3* obj_normals_buffer = (Vector3*)obj_mesh->normals;
+        fastObjUInt obj_normal_index = obj_mesh->indices[i].n;
+        mesh->normals[i] = obj_normals_buffer[obj_normal_index];
+
         // TODO -- sample tcoord indices and add them to the mesh's tcoords buffer
+        Vector2* obj_tcoords_buffer = (Vector2*)obj_mesh->texcoords;
+        fastObjUInt obj_tcoord_index = obj_mesh->indices[i].t;
+        mesh->tcoords[i] = obj_tcoords_buffer[obj_tcoord_index];
     }
 
     fast_obj_destroy(obj_mesh);
@@ -68,6 +77,8 @@ void LoadMesh(Mesh* mesh, const char* path)
     glGenVertexArrays(1, &mesh->vao);
     glGenBuffers(1, &mesh->vbo_positions);
     // TODO -- generate vbo handles for mesh normals and mesh tcoords
+    glGenBuffers(1, &mesh->vbo_normals);
+    glGenBuffers(1, &mesh->vbo_tcoords);
 
     glBindVertexArray(mesh->vao);
 
@@ -77,13 +88,35 @@ void LoadMesh(Mesh* mesh, const char* path)
     glEnableVertexAttribArray(0);
 
     // TODO -- describe vertex buffers for normals (1) and tcoords (2)
+    glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo_normals);
+    glVertexAttribPointer(ATTRIBUTE_NORMALS, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+    glBufferData(GL_ARRAY_BUFFER, mesh->normals.size() * sizeof(Vector3), mesh->normals.data(), GL_STATIC_DRAW);
+    glEnableVertexAttribArray(ATTRIBUTE_NORMALS);
+
+    glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo_tcoords);
+    glVertexAttribPointer(ATTRIBUTE_TCOORDS, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+    glBufferData(GL_ARRAY_BUFFER, mesh->tcoords.size() * sizeof(Vector2), mesh->tcoords.data(), GL_STATIC_DRAW);
+    glEnableVertexAttribArray(ATTRIBUTE_TCOORDS);
 
     glBindVertexArray(GL_NONE);
 }
 
 void UnloadMesh(Mesh* mesh)
 {
-    
+    glDeleteBuffers(1, &mesh->vbo_tcoords);
+    glDeleteBuffers(1, &mesh->vbo_normals);
+    glDeleteBuffers(1, &mesh->vbo_positions);
+    glDeleteVertexArrays(1, &mesh->vao);
+
+    mesh->vbo_tcoords = GL_NONE;
+    mesh->vbo_normals = GL_NONE;
+    mesh->vbo_positions = GL_NONE;
+    mesh->vao = GL_NONE;
+
+    mesh->positions.clear();
+    mesh->normals.clear();
+    mesh->tcoords.clear();
+    mesh->index_count = 0;
 }
 
 void Init(App* app);
@@ -126,6 +159,10 @@ int main()
         glfwSwapBuffers(app.window);
         glfwPollEvents();
     }
+
+    glDeleteProgram(shader_program);
+    UnloadMesh(&meshes[1]);
+    UnloadMesh(&meshes[0]);
 
     glfwTerminate();
     return 0;
