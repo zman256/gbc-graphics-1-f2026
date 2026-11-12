@@ -24,12 +24,26 @@ enum ShaderVertexAttribute : int
     ATTRIBUTE_TCOORDS
 };
 
+enum ProjectionType : int
+{
+	ORTHOGRAPHIC = 0,
+    PERSPECTIVE = 1
+};
+
+enum CameraView : int
+{
+	FRONT_VIEW = 0,
+	SIDE_VIEW = 1
+};
+
 struct App
 {
     GLFWwindow* window;
     int object_index;
     int attribute_color;
     int color_space;
+	int projection_type;
+    int camera_perspecive;
 };
 
 struct Mesh
@@ -121,14 +135,28 @@ void UnloadMesh(Mesh* mesh)
 
 void Init(App* app);
 
+// Camera
+Vector3 camera_position = { 0.0f, 0.0f, 3.0f };
+Vector3 camera_target = { 0.0f, 0.0f, 0.0f };
+Vector3 camera_up = { 0.0f, 1.0f, 0.0f };
+
+// Projection
+float fov = 75.0f * DEG2RAD;
+float near = 0.1f;
+float far = 100.0f;
+
+// Half the height of the ortho box
+float ortho_height = 1.1f;
+
 int main()
 {
     App app{};
     Init(&app);
 
-    Mesh meshes[2];
+    Mesh meshes[3];
     LoadMesh(&meshes[0], "./assets/meshes/plane.obj");
     LoadMesh(&meshes[1], "./assets/meshes/head.obj");
+    LoadMesh(&meshes[2], "./assets/meshes/monkey.obj");
 
     GLuint vs_shader = LoadShader(GL_VERTEX_SHADER, "./assets/shaders/a3_mesh.vert");
     GLuint fs_shader = LoadShader(GL_FRAGMENT_SHADER, "./assets/shaders/a3_mesh.frag");
@@ -141,13 +169,49 @@ int main()
         glClearDepth(1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        // Window reszing handle
+        int width, height;
+        glfwGetFramebufferSize(app.window, &width, &height);
+        glViewport(0, 0, width, height);
+        float aspect = (float)width / (float)height;
+		if (app.camera_perspecive == FRONT_VIEW)
+		{
+			camera_position = { 0.0f, 0.0f, 3.0f };
+			camera_target = { 0.0f, 0.0f, 0.0f };
+			camera_up = { 0.0f, 1.0f, 0.0f };
+		}
+		else
+		{
+			camera_position = { 3.0f, 0.0f, 3.0f };
+			camera_target = { 0.0f, 0.0f, 0.0f };
+			camera_up = { 0.0f, 1.0f, 0.0f };
+		}
+
         Matrix world = MatrixIdentity();
+
+        Matrix view = MatrixLookAt(camera_position, camera_target, camera_up);
+
+        Matrix proj = MatrixIdentity();
+        if (app.projection_type == ORTHOGRAPHIC)
+        {
+            // Multiply by aspect to get the width of the ortho box
+            proj = MatrixOrtho(-ortho_height * aspect, ortho_height * aspect, -ortho_height, ortho_height, near, far);
+           
+        }
+		else if (app.projection_type == PERSPECTIVE)
+        {
+            proj = MatrixPerspective(fov, aspect, near, far);
+        }
+
+        Matrix mvp = MatrixMultiply(MatrixMultiply(world, view), proj);
 
         glUseProgram(shader_program);
         GLint loc_transform = glGetUniformLocation(shader_program, "u_transform");
+        GLint loc_mvp = glGetUniformLocation(shader_program, "u_mvp");
         GLint loc_style = glGetUniformLocation(shader_program, "u_style");
         GLint loc_color_space = glGetUniformLocation(shader_program, "u_color_space");
         glUniformMatrix4fv(loc_transform, 1, GL_FALSE, MatrixToFloat(world));
+        glUniformMatrix4fv(loc_mvp, 1, GL_FALSE, MatrixToFloat(mvp));
         glUniform1i(loc_style, app.attribute_color);
         glUniform1i(loc_color_space, app.color_space);
 
@@ -161,6 +225,7 @@ int main()
     }
 
     glDeleteProgram(shader_program);
+    UnloadMesh(&meshes[2]);
     UnloadMesh(&meshes[1]);
     UnloadMesh(&meshes[0]);
 
@@ -179,8 +244,8 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
     if (key == GLFW_KEY_TAB && action == GLFW_PRESS)
     {
-        // Bound our array to be [0..1]
-        ++app->object_index %= 2;
+        // Bound our array to be [0..2]
+        ++app->object_index %= 3;
     }
 
     if (key == GLFW_KEY_C && action == GLFW_PRESS)
@@ -193,6 +258,16 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         // Bound our array to be [0..1]
         ++app->color_space %= 2;
     }
+	if (key == GLFW_KEY_B && action == GLFW_PRESS)
+	{
+		// Bound our array to be [0..1]
+		++app->projection_type %= 2;
+	}
+	if (key == GLFW_KEY_N && action == GLFW_PRESS)
+	{
+		// Bound our array to be [0..1]
+		++app->camera_perspecive %= 2;
+	}
 }
 
 void Init(App* app)
