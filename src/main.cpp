@@ -145,7 +145,7 @@ float fov = 75.0f * DEG2RAD;
 float near = 0.1f;
 float far = 100.0f;
 
-// Half the height of the ortho box
+// Half the height of the ortho box then multiply by aspect to get width. I do this in the frame to handle window resizing
 float ortho_height = 1.1f;
 
 int main()
@@ -194,7 +194,6 @@ int main()
         Matrix proj = MatrixIdentity();
         if (app.projection_type == ORTHOGRAPHIC)
         {
-            // Multiply by aspect to get the width of the ortho box
             proj = MatrixOrtho(-ortho_height * aspect, ortho_height * aspect, -ortho_height, ortho_height, near, far);
            
         }
